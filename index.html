@@ -96,13 +96,17 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .bench{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:.9rem;color:var(--muted)}
 .bench .chip{padding:3px 12px;font-size:.88rem}
 .late{border:2px dashed var(--shuttle)}
+.lang{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;flex-shrink:0}
+.lang button{border-radius:0;padding:7px 12px;background:transparent;color:var(--muted);font-weight:700}
+.lang button[aria-pressed=true]{background:var(--court);color:var(--court-ink)}
+.hbtns{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 
 /* tables */
 .tbl-wrap{overflow-x:auto;margin-inline:-4px}
 table{width:100%;border-collapse:collapse;font-size:.92rem}
 th,td{padding:8px 6px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
 th{font-size:.78rem;color:var(--muted);font-weight:700}
-td.name,th.name{text-align:right;font-weight:700}
+td.name,th.name{text-align:start;font-weight:700}
 td.rk{font-family:var(--display);font-size:1.15rem;width:2.2em}
 tr.r1 td.rk{color:var(--shuttle)} tr.r2 td.rk{color:var(--muted)} tr.r3 td.rk{color:var(--court)}
 .pos{color:var(--good)} .neg{color:var(--bad)}
@@ -111,7 +115,7 @@ tr.r1 td.rk{color:var(--shuttle)} tr.r2 td.rk{color:var(--muted)} tr.r3 td.rk{co
 .hist .rn{color:var(--muted);font-size:.8rem;font-weight:700}
 .m{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;padding:7px 10px;border-radius:10px;background:var(--surface-2);font-size:.9rem}
 .m .t{min-width:0;overflow-wrap:anywhere}
-.m .t:last-child{text-align:left}
+.m .t:last-child{text-align:end}
 .m .w{font-weight:800}
 .m .sc{font-family:var(--display);font-size:1.1rem}
 .matrix td{min-width:34px}
@@ -134,13 +138,13 @@ details summary{cursor:pointer;font-weight:700}
 </head>
 <body>
 
-<div class="wrap" dir="rtl" lang="fa">
+<div class="wrap" id="wrap" dir="rtl" lang="fa">
   <header>
-    <div>
-      <h1>بدمینتون <span>چرخشی</span></h1>
-      <p class="sub">قرعه‌کشی منصفانه، هر دور یار و حریف عوض می‌شود</p>
+    <h1 id="title"></h1>
+    <div class="hbtns">
+      <div class="lang" role="group" aria-label="Language"><button type="button" data-lang="fa">فارسی</button><button type="button" data-lang="en">English</button></div>
+      <button class="btn-ghost" id="resetBtn" type="button" style="white-space:nowrap"></button>
     </div>
-    <button class="btn-ghost" id="resetBtn" type="button" style="white-space:nowrap;flex-shrink:0">↺ شروع دوباره</button>
   </header>
   <main id="app"></main>
 </div>
@@ -148,23 +152,74 @@ details summary{cursor:pointer;font-weight:700}
 <script>
 (function(){
 const KEY='bd-rotate-v1';
-const fa=n=>Number(n).toLocaleString('fa-IR');
-const faSigned=n=>(n>0?'+':n<0?'−':'')+fa(Math.abs(n));
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const uid=()=>Math.random().toString(36).slice(2,9);
 const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
 const toLatin=s=>s.replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));
 
-const SAMPLE=['آرش','سینا','مهدی','نیما','رضا','پویا'];
-function fresh(){return{phase:'setup',sample:true,players:SAMPLE.map(n=>({id:uid(),name:n,active:true,base:0})),mode:2,courts:1,rounds:[],current:null}}
+const SAMPLE={fa:['آرش','سینا','مهدی','نیما','رضا','پویا'],en:['Arash','Sina','Mehdi','Nima','Reza','Pouya']};
+function fresh(lang){lang=lang||'fa';return{lang,phase:'setup',sample:true,players:SAMPLE[lang].map(n=>({id:uid(),name:n,active:true,base:0})),mode:2,courts:1,rounds:[],current:null}}
 let S;
 try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){S=null}
 if(!S||!S.players||!S.rounds)S=fresh();
+if(!S.lang)S.lang='fa';
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 let ui={err:'',ok:'',confirm:null,newIds:[]};
 
+/* ---------- language ---------- */
+const FA=()=>S.lang==='fa';
+const fa=n=>FA()?Number(n).toLocaleString('fa-IR'):String(n);
+const faSigned=n=>(n>0?'+':n<0?'−':'')+fa(Math.abs(n));
+const L={
+ fa:{
+  title:'بدمینتون <span>چرخشی</span>',doc:'بدمینتون چرخشی',reset:'↺ شروع دوباره',
+  resetTitle:'شروع دوباره',resetDesc:'«بازی جدید» نتیجه‌ها را پاک می‌کند ولی اسم‌ها می‌مانند. «پاک کردن همه چیز» اسم‌ها را هم پاک می‌کند.',
+  rsKeep:'بازی جدید با همین بازیکن‌ها',rsAll:'پاک کردن همه چیز',cancel:'انصراف',
+  players:'بازیکن‌ها',sample:'این اسم‌ها نمونه هستند. اولین اسم را که اضافه کنی پاک می‌شوند.',namePh:'اسم بازیکن…',add:'اضافه کن',
+  dup:'این اسم قبلاً اضافه شده.',nobody:'هنوز کسی اضافه نشده.',people:n=>`${fa(n)} نفر`,clearAll:'پاک کردن همه',
+  gameType:'نوع بازی',singles:'یک‌نفره (سینگل)',doubles:'دونفره (دبل)',courtsQ:'چند زمین دارید؟',courtN:n=>`${fa(n)} زمین`,
+  minTwo:'حداقل دو نفر اضافه کن.',sLbl:'یک‌نفره',dLbl:'دونفره',vs:(x,y)=>`${fa(x)} در برابر ${fa(y)}`,
+  perRound:(n,p)=>`هر دور ${fa(n)} بازی: ${p}.`,resting:n=>` ${fa(n)} نفر استراحت می‌کنند و دور بعد اول بازی می‌کنند.`,
+  start:'شروع و قرعه‌ی دور اول',needTwo:'حداقل دو بازیکن حاضر لازم است.',
+  round:n=>`دور ${fa(n)}`,done:n=>`${fa(n)} دور تمام‌شده`,court:n=>`زمین ${fa(n)}`,teamA:'تیم سبز',teamB:'تیم زرد',score:'امتیاز',
+  bench:'استراحت:',tie:'امتیاز دو تیم مساوی است. امتیاز برنده را وارد کن.',finish:'ثبت نتیجه و دور بعد',redraw:'قرعه‌ی دوباره',
+  late:'بازیکن دیررسیده',latePh:'اسم بازیکن تازه…',lateOk:n=>`${n} اضافه شد و دور بعد بازی می‌کند.`,
+  lateNote:'از دور بعد وارد بازی می‌شود و چون دیر آمده، اول بازی می‌کند. امتیازش از همین حالا حساب می‌شود.',
+  leftQ:'کسی رفت؟ (غایب / برگشت)',left:'رفت',back:'برگشت',
+  rankSoFar:'رنکینگ تا اینجا',past:'دورهای گذشته',pairsQ:'یارها: چند بار با هم هم‌تیمی بوده‌اند',
+  end:'پایان بازی و رنکینگ نهایی',endYes:'بله، تمام کن',endNo:'ادامه بده',
+  final:'رنکینگ نهایی',finalSub:(r,m)=>`${fa(r)} دور، ${fa(m)} بازی`,all:'همه‌ی بازی‌ها',pairs:'یارها',toGame:'برگشت به بازی',newGame:'بازی جدید',
+  wonOf:(w,p)=>`${fa(w)} برد از ${fa(p)}`,noGames:'هنوز بازی‌ای ثبت نشده.',
+  th:['#','بازیکن','بازی','برد','باخت','درصد برد','تفاضل امتیاز'],pct:'٪',
+  rankNote:'ترتیب: درصد برد، بعد تعداد برد، بعد تفاضل امتیاز.',matrixNote:'عددهای کم و نزدیک به هم یعنی چرخش منصفانه بوده.',sep:'، '
+ },
+ en:{
+  title:'Badminton <span>Rotation</span>',doc:'Badminton Rotation',reset:'↺ Restart',
+  resetTitle:'Restart',resetDesc:'“New game” clears the results but keeps the names. “Clear everything” removes the names too.',
+  rsKeep:'New game, same players',rsAll:'Clear everything',cancel:'Cancel',
+  players:'Players',sample:'These names are examples. They disappear when you add the first name.',namePh:'Player name…',add:'Add',
+  dup:'That name is already added.',nobody:'No one added yet.',people:n=>`${n} ${n===1?'player':'players'}`,clearAll:'Clear all',
+  gameType:'Game type',singles:'Singles',doubles:'Doubles',courtsQ:'How many courts?',courtN:n=>`${n} ${n===1?'court':'courts'}`,
+  minTwo:'Add at least two players.',sLbl:'singles',dLbl:'doubles',vs:(x,y)=>`${x} vs ${y}`,
+  perRound:(n,p)=>`Each round: ${n} ${n===1?'game':'games'} (${p}).`,resting:n=>` ${n} sit out and play first next round.`,
+  start:'Start and draw round 1',needTwo:'At least two players must be present.',
+  round:n=>`Round ${n}`,done:n=>`${n} ${n===1?'round':'rounds'} finished`,court:n=>`Court ${n}`,teamA:'Green',teamB:'Yellow',score:'Score',
+  bench:'Sitting out:',tie:'The scores are tied. Enter the winning score.',finish:'Save scores & next round',redraw:'Redraw',
+  late:'Late arrival',latePh:'New player’s name…',lateOk:n=>`${n} added and plays next round.`,
+  lateNote:'They join from the next round and get priority because they arrived late. Their ranking starts from now.',
+  leftQ:'Someone left? (away / back)',left:'Left',back:'Back',
+  rankSoFar:'Ranking so far',past:'Past rounds',pairsQ:'Partners: how often each pair has teamed up',
+  end:'End game & final ranking',endYes:'Yes, end it',endNo:'Keep playing',
+  final:'Final ranking',finalSub:(r,m)=>`${r} ${r===1?"round":"rounds"}, ${m} ${m===1?"game":"games"}`,all:'All games',pairs:'Partners',toGame:'Back to game',newGame:'New game',
+  wonOf:(w,p)=>`${w} won of ${p}`,noGames:'No games recorded yet.',
+  th:['#','Player','Played','Won','Lost','Win %','Point diff'],pct:'%',
+  rankNote:'Order: win %, then wins, then point difference.',matrixNote:'Low, even numbers mean the rotation was fair.',sep:', '
+ }
+};
+const t=(k,...a)=>{const v=L[S.lang][k];return typeof v==='function'?v(...a):v};
+
 const P=id=>S.players.find(p=>p.id===id);
-const nm=id=>(P(id)||{name:'؟'}).name;
+const nm=id=>(P(id)||{name:'?'}).name;
 const active=()=>S.players.filter(p=>p.active);
 const allMatches=()=>S.rounds.flatMap(r=>r.matches);
 
@@ -174,9 +229,9 @@ function stats(){
   const pair={},opp={};
   const k=(a,b)=>a<b?a+'|'+b:b+'|'+a;
   allMatches().forEach(s=>{
-    [[s.a,s.sa,s.sb],[s.b,s.sb,s.sa]].forEach(([t,f,ag])=>t.forEach(id=>{const x=st[id];if(!x)return;x.played++;x.pf+=f;x.pa+=ag;f>ag?x.w++:x.l++;}));
+    [[s.a,s.sa,s.sb],[s.b,s.sb,s.sa]].forEach(([tm,f,ag])=>tm.forEach(id=>{const x=st[id];if(!x)return;x.played++;x.pf+=f;x.pa+=ag;f>ag?x.w++:x.l++;}));
     if(s.a.length!==s.b.length)(s.a.length<s.b.length?s.a:s.b).forEach(id=>st[id]&&st[id].short++);
-    [s.a,s.b].forEach(t=>{for(let i=0;i<t.length;i++)for(let j=i+1;j<t.length;j++){const q=k(t[i],t[j]);pair[q]=(pair[q]||0)+1}});
+    [s.a,s.b].forEach(tm=>{for(let i=0;i<tm.length;i++)for(let j=i+1;j<tm.length;j++){const q=k(tm[i],tm[j]);pair[q]=(pair[q]||0)+1}});
     s.a.forEach(x=>s.b.forEach(y=>{const q=k(x,y);opp[q]=(opp[q]||0)+1}));
   });
   return{st,pair,opp,key:k};
@@ -196,7 +251,7 @@ function plan(n){
 function combos(arr,r){const out=[];const go=(s,acc)=>{if(acc.length===r){out.push(acc.slice());return}for(let i=s;i<arr.length;i++){acc.push(arr[i]);go(i+1,acc);acc.pop()}};go(0,[]);return out}
 function draw(){
   const act=active();const n=act.length;
-  if(n<2){ui.err='حداقل دو بازیکن حاضر لازم است.';return false}
+  if(n<2){ui.err=t('needTwo');return false}
   const {st,pair,opp,key}=stats();
   const sizes=plan(n),slots=sizes.reduce((s,[x,y])=>s+x+y,0);
   const lastR=S.rounds[S.rounds.length-1];
@@ -209,7 +264,7 @@ function draw(){
   });
   const playing=order.slice(0,slots).map(p=>p.id);
   const lastSigs=new Set((lastR?lastR.matches:[]).map(m=>[m.a.slice().sort().join(','),m.b.slice().sort().join(',')].sort().join('/')));
-  const teamCost=t=>{let c=0;for(let i=0;i<t.length;i++)for(let j=i+1;j<t.length;j++){const p=pair[key(t[i],t[j])]||0;c+=10*p*p+3*p}return c};
+  const teamCost=tm=>{let c=0;for(let i=0;i<tm.length;i++)for(let j=i+1;j<tm.length;j++){const p=pair[key(tm[i],tm[j])]||0;c+=10*p*p+3*p}return c};
   function bestSplit(g,x){
     let cands=combos(g,x);if(x*2===g.length)cands=cands.filter(c=>c.includes(g[0]));
     let best=null;
@@ -226,7 +281,7 @@ function draw(){
   }
   let best=null;
   const tries=sizes.length>1?300:1;
-  for(let t=0;t<tries;t++){
+  for(let i=0;i<tries;i++){
     const pl=shuffle(playing);let idx=0,total=0;const ms=[];
     for(const [x,y] of sizes){const g=pl.slice(idx,idx+x+y);idx+=x+y;const b=bestSplit(g,x);total+=b.c;ms.push(b)}
     if(!best||total<best.total)best={total,ms};
@@ -237,105 +292,113 @@ function draw(){
 }
 
 /* ---------- views ---------- */
-const app=document.getElementById('app');
-function render(){save();app.innerHTML=(ui.confirm==='reset'?vReset():'')+(S.phase==='setup'?vSetup():S.phase==='game'?vGame():vFinal());bind();}
+const app=document.getElementById('app'),wrap=document.getElementById('wrap');
+function chrome(){
+  const dir=FA()?'rtl':'ltr';
+  wrap.dir=dir;wrap.lang=S.lang;document.documentElement.dir=dir;document.documentElement.lang=S.lang;
+  document.title=t('doc');
+  document.getElementById('title').innerHTML=t('title');
+  document.getElementById('resetBtn').textContent=t('reset');
+  document.querySelectorAll('[data-lang]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.lang===S.lang));
+}
+function render(){save();chrome();app.innerHTML=(ui.confirm==='reset'?vReset():'')+(S.phase==='setup'?vSetup():S.phase==='game'?vGame():vFinal());bind();}
 
 function vReset(){
   return `<section class="card" style="border:2px solid var(--bad)">
-    <h2>شروع دوباره</h2>
-    <p class="sub">«بازی جدید» نتیجه‌ها را پاک می‌کند ولی اسم‌ها می‌مانند. «پاک کردن همه چیز» اسم‌ها را هم پاک می‌کند.</p>
+    <h2>${t('resetTitle')}</h2>
+    <p class="sub">${t('resetDesc')}</p>
     <div class="row">
-      <button class="btn-main" id="rsKeep" style="flex:1">بازی جدید با همین بازیکن‌ها</button>
-      <button class="btn-danger" id="rsAll" style="flex:1">پاک کردن همه چیز</button>
+      <button class="btn-main" id="rsKeep" style="flex:1">${t('rsKeep')}</button>
+      <button class="btn-danger" id="rsAll" style="flex:1">${t('rsAll')}</button>
     </div>
-    <button class="btn-ghost wide" id="rsNo">انصراف</button>
+    <button class="btn-ghost wide" id="rsNo">${t('cancel')}</button>
   </section>`;
 }
 
 function planText(n){
-  if(n<2)return 'حداقل دو نفر اضافه کن.';
+  if(n<2)return t('minTwo');
   const sz=plan(n);const used=sz.reduce((s,[x,y])=>s+x+y,0);
-  const parts=sz.map(([x,y])=>x===y?(x===1?'یک‌نفره':'دونفره'):`${fa(x)} در برابر ${fa(y)}`);
-  let t=`هر دور ${fa(sz.length)} بازی: ${parts.join('، ')}.`;
-  if(n>used)t+=` ${fa(n-used)} نفر استراحت می‌کنند و دور بعد اول بازی می‌کنند.`;
-  return t;
+  const parts=sz.map(([x,y])=>x===y?(x===1?t('sLbl'):t('dLbl')):t('vs',x,y));
+  let s=t('perRound',sz.length,parts.join(t('sep')));
+  if(n>used)s+=t('resting',n-used);
+  return s;
 }
 
 function vSetup(){
   const act=active().length;
   return `
   <section class="card">
-    <h2>بازیکن‌ها</h2>
-    ${S.sample?'<p class="note">این اسم‌ها نمونه هستند. اولین اسم را که اضافه کنی پاک می‌شوند.</p>':''}
+    <h2>${t('players')}</h2>
+    ${S.sample?`<p class="note">${t('sample')}</p>`:''}
     <form id="addf" class="row">
-      <input type="text" id="pname" placeholder="اسم بازیکن…" autocomplete="off" aria-label="اسم بازیکن">
-      <button class="btn-sh" type="submit">اضافه کن</button>
+      <input type="text" id="pname" placeholder="${t('namePh')}" autocomplete="off" aria-label="${t('namePh')}">
+      <button class="btn-sh" type="submit">${t('add')}</button>
     </form>
     <p class="err">${esc(ui.err)}</p>
-    <div class="chips">${S.players.map(p=>`<span class="chip">${esc(p.name)}<button data-del="${p.id}" aria-label="حذف ${esc(p.name)}">×</button></span>`).join('')||'<span class="sub">هنوز کسی اضافه نشده.</span>'}</div>
+    <div class="chips">${S.players.map(p=>`<span class="chip">${esc(p.name)}<button data-del="${p.id}" aria-label="× ${esc(p.name)}">×</button></span>`).join('')||`<span class="sub">${t('nobody')}</span>`}</div>
     <div class="row" style="justify-content:space-between">
-      <span class="sub num">${fa(S.players.length)} نفر</span>
-      ${S.players.length?'<button class="btn-ghost" id="clear">پاک کردن همه</button>':''}
+      <span class="sub num">${t('people',S.players.length)}</span>
+      ${S.players.length?`<button class="btn-ghost" id="clear">${t('clearAll')}</button>`:''}
     </div>
   </section>
   <section class="card">
-    <h2>نوع بازی</h2>
-    <div class="seg"><button data-mode="1" aria-pressed="${S.mode===1}">یک‌نفره (سینگل)</button><button data-mode="2" aria-pressed="${S.mode===2}">دونفره (دبل)</button></div>
-    <h2>چند زمین دارید؟</h2>
-    <div class="seg">${[1,2,3,4].map(n=>`<button data-courts="${n}" aria-pressed="${n===S.courts}">${fa(n)} زمین</button>`).join('')}</div>
+    <h2>${t('gameType')}</h2>
+    <div class="seg"><button data-mode="1" aria-pressed="${S.mode===1}">${t('singles')}</button><button data-mode="2" aria-pressed="${S.mode===2}">${t('doubles')}</button></div>
+    <h2>${t('courtsQ')}</h2>
+    <div class="seg">${[1,2,3,4].map(n=>`<button data-courts="${n}" aria-pressed="${n===S.courts}">${t('courtN',n)}</button>`).join('')}</div>
     <p class="sub">${planText(act)}</p>
   </section>
-  <button class="btn-main wide" id="start" ${act<2?'disabled':''}>شروع و قرعه‌ی دور اول</button>`;
+  <button class="btn-main wide" id="start" ${act<2?'disabled':''}>${t('start')}</button>`;
 }
 
 function vGame(){
   const c=S.current,n=S.rounds.length+1,multi=c.matches.length>1;
   const side=(cls,tag,ids,sc,mi,key)=>`<div class="side ${cls}"><span class="tag">${tag}</span><ul>${ids.map(id=>`<li>${esc(nm(id))}</li>`).join('')}</ul>
-    <div class="score"><input type="text" inputmode="numeric" class="num" id="in-${mi}-${key}" data-mi="${mi}" data-sc="${key}" value="${sc?fa(sc):''}" placeholder="۰" aria-label="امتیاز ${tag}${multi?' زمین '+fa(mi+1):''}" autocomplete="off"></div></div>`;
+    <div class="score"><input type="text" inputmode="numeric" class="num" id="in-${mi}-${key}" data-mi="${mi}" data-sc="${key}" value="${sc?fa(sc):''}" placeholder="${fa(0)}" aria-label="${t('score')} ${tag}${multi?' '+t('court',mi+1):''}" autocomplete="off"></div></div>`;
   return `
-  <div class="roundno"><b>دور ${fa(n)}</b><span class="sub">${fa(S.rounds.length)} دور تمام‌شده</span></div>
+  <div class="roundno"><b>${t('round',n)}</b><span class="sub">${t('done',S.rounds.length)}</span></div>
   <div class="courts">${c.matches.map((m,i)=>`<div>
-    ${multi?`<div class="ctitle"><span>زمین ${fa(i+1)}</span></div>`:''}
-    <div class="court">${side('a','تیم سبز',m.a,m.sa,i,'sa')}${side('b','تیم زرد',m.b,m.sb,i,'sb')}</div></div>`).join('')}</div>
-  ${c.bench.length?`<div class="bench">استراحت: ${c.bench.map(id=>`<span class="chip">${esc(nm(id))}</span>`).join('')}</div>`:''}
+    ${multi?`<div class="ctitle"><span>${t('court',i+1)}</span></div>`:''}
+    <div class="court">${side('a',t('teamA'),m.a,m.sa,i,'sa')}${side('b',t('teamB'),m.b,m.sb,i,'sb')}</div></div>`).join('')}</div>
+  ${c.bench.length?`<div class="bench">${t('bench')} ${c.bench.map(id=>`<span class="chip">${esc(nm(id))}</span>`).join('')}</div>`:''}
   <p class="err">${esc(ui.err)}</p>
   <div class="row">
-    <button class="btn-main" id="finish" style="flex:2">ثبت نتیجه و دور بعد</button>
-    <button class="btn-ghost" id="redraw" style="flex:1">قرعه‌ی دوباره</button>
+    <button class="btn-main" id="finish" style="flex:2">${t('finish')}</button>
+    <button class="btn-ghost" id="redraw" style="flex:1">${t('redraw')}</button>
   </div>
   <section class="card late">
-    <h2>بازیکن دیررسیده</h2>
-    <form id="addg" class="row"><input type="text" id="gname" placeholder="اسم بازیکن تازه…" autocomplete="off" aria-label="بازیکن تازه"><button class="btn-sh" type="submit">اضافه کن</button></form>
+    <h2>${t('late')}</h2>
+    <form id="addg" class="row"><input type="text" id="gname" placeholder="${t('latePh')}" autocomplete="off" aria-label="${t('latePh')}"><button class="btn-sh" type="submit">${t('add')}</button></form>
     <p class="ok">${esc(ui.ok)}</p>
-    <p class="sub">از دور بعد وارد بازی می‌شود و چون دیر آمده، اول بازی می‌کند. امتیازش از همین حالا حساب می‌شود.</p>
-    <details><summary>کسی رفت؟ (غایب / برگشت)</summary>
-      <div class="chips" style="margin-top:10px">${S.players.map(p=>`<span class="chip ${p.active?'':'off'} ${ui.newIds.includes(p.id)?'new':''}">${esc(p.name)}<button data-tog="${p.id}">${p.active?'رفت':'برگشت'}</button></span>`).join('')}</div>
+    <p class="sub">${t('lateNote')}</p>
+    <details><summary>${t('leftQ')}</summary>
+      <div class="chips" style="margin-top:10px">${S.players.map(p=>`<span class="chip ${p.active?'':'off'} ${ui.newIds.includes(p.id)?'new':''}">${esc(p.name)}<button data-tog="${p.id}">${p.active?t('left'):t('back')}</button></span>`).join('')}</div>
     </details>
   </section>
-  ${S.rounds.length?`<section class="card"><h2>رنکینگ تا اینجا</h2>${tblRank()}</section>`:''}
-  ${S.rounds.length?`<section class="card"><h2>دورهای گذشته</h2>${histList()}</section>`:''}
-  <section class="card"><details><summary>یارها: چند بار با هم هم‌تیمی بوده‌اند</summary><div style="margin-top:12px">${matrix()}</div></details></section>
+  ${S.rounds.length?`<section class="card"><h2>${t('rankSoFar')}</h2>${tblRank()}</section>`:''}
+  ${S.rounds.length?`<section class="card"><h2>${t('past')}</h2>${histList()}</section>`:''}
+  <section class="card"><details><summary>${t('pairsQ')}</summary><div style="margin-top:12px">${matrix()}</div></details></section>
   <div class="row">
-    ${ui.confirm==='end'?`<button class="btn-danger" id="endyes" style="flex:1">بله، تمام کن</button><button class="btn-ghost" id="nope" style="flex:1">ادامه بده</button>`:
-      `<button class="btn-sh wide" id="end" ${S.rounds.length?'':'disabled'}>پایان بازی و رنکینگ نهایی</button>`}
+    ${ui.confirm==='end'?`<button class="btn-danger" id="endyes" style="flex:1">${t('endYes')}</button><button class="btn-ghost" id="nope" style="flex:1">${t('endNo')}</button>`:
+      `<button class="btn-sh wide" id="end" ${S.rounds.length?'':'disabled'}>${t('end')}</button>`}
   </div>`;
 }
 
 function vFinal(){
   const r=ranking();
-  const pod=(p,i)=>p?`<div class="pod p${i+1}"><span class="nm">${esc(nm(p.id))}</span><span class="st num">${fa(p.w)} برد از ${fa(p.played)}</span><div class="blk">${fa(i+1)}</div></div>`:'<div></div>';
+  const pod=(p,i)=>p?`<div class="pod p${i+1}"><span class="nm">${esc(nm(p.id))}</span><span class="st num">${t('wonOf',p.w,p.played)}</span><div class="blk">${fa(i+1)}</div></div>`:'<div></div>';
   return `
   <section class="card">
-    <h2>رنکینگ نهایی</h2>
-    <p class="sub num">${fa(S.rounds.length)} دور، ${fa(allMatches().length)} بازی</p>
+    <h2>${t('final')}</h2>
+    <p class="sub num">${t('finalSub',S.rounds.length,allMatches().length)}</p>
     <div class="podium">${pod(r[1],1)}${pod(r[0],0)}${pod(r[2],2)}</div>
     ${tblRank()}
   </section>
-  <section class="card"><h2>همه‌ی بازی‌ها</h2>${histList()}</section>
-  <section class="card"><h2>یارها</h2>${matrix()}</section>
+  <section class="card"><h2>${t('all')}</h2>${histList()}</section>
+  <section class="card"><h2>${t('pairs')}</h2>${matrix()}</section>
   <div class="row">
-    <button class="btn-ghost" id="back" style="flex:1">برگشت به بازی</button>
-    <button class="btn-main" id="rsOpen" style="flex:1">بازی جدید</button>
+    <button class="btn-ghost" id="back" style="flex:1">${t('toGame')}</button>
+    <button class="btn-main" id="rsOpen" style="flex:1">${t('newGame')}</button>
   </div>`;
 }
 
@@ -345,17 +408,17 @@ function ranking(){
    .sort((a,b)=>b.pct-a.pct||b.w-a.w||b.diff-a.diff||a.played-b.played);
 }
 function tblRank(){
-  const r=ranking();if(!r.length)return '<p class="sub">هنوز بازی‌ای ثبت نشده.</p>';
-  let prev=null,rank=0;
-  return `<div class="tbl-wrap"><table class="num"><thead><tr><th>#</th><th class="name">بازیکن</th><th>بازی</th><th>برد</th><th>باخت</th><th>درصد برد</th><th>تفاضل امتیاز</th></tr></thead><tbody>${
+  const r=ranking();if(!r.length)return `<p class="sub">${t('noGames')}</p>`;
+  const h=t('th');let prev=null,rank=0;
+  return `<div class="tbl-wrap"><table class="num"><thead><tr><th>${h[0]}</th><th class="name">${h[1]}</th><th>${h[2]}</th><th>${h[3]}</th><th>${h[4]}</th><th>${h[5]}</th><th>${h[6]}</th></tr></thead><tbody>${
     r.map((x,i)=>{const sig=x.pct+'|'+x.w+'|'+x.diff;if(sig!==prev){rank=i+1;prev=sig}
-      return `<tr class="r${rank}"><td class="rk">${fa(rank)}</td><td class="name">${esc(nm(x.id))}</td><td>${fa(x.played)}</td><td>${fa(x.w)}</td><td>${fa(x.l)}</td><td>${fa(Math.round(x.pct*100))}٪</td><td class="${x.diff>0?'pos':x.diff<0?'neg':''}">${faSigned(x.diff)}</td></tr>`}).join('')
+      return `<tr class="r${rank}"><td class="rk">${fa(rank)}</td><td class="name">${esc(nm(x.id))}</td><td>${fa(x.played)}</td><td>${fa(x.w)}</td><td>${fa(x.l)}</td><td>${fa(Math.round(x.pct*100))}${t('pct')}</td><td class="${x.diff>0?'pos':x.diff<0?'neg':''}">${faSigned(x.diff)}</td></tr>`}).join('')
   }</tbody></table></div>
-  <p class="sub">ترتیب: درصد برد، بعد تعداد برد، بعد تفاضل امتیاز.</p>`;
+  <p class="sub">${t('rankNote')}</p>`;
 }
 function histList(){
-  return `<ol class="hist">${S.rounds.map((r,i)=>`<li><span class="rn">دور ${fa(i+1)}</span>${r.matches.map(s=>{const aw=s.sa>s.sb;
-    return `<div class="m"><span class="t ${aw?'w':''}">${s.a.map(id=>esc(nm(id))).join('، ')}</span><span class="sc num">${fa(s.sa)} – ${fa(s.sb)}</span><span class="t ${aw?'':'w'}">${s.b.map(id=>esc(nm(id))).join('، ')}</span></div>`}).join('')}</li>`).reverse().join('')}</ol>`;
+  return `<ol class="hist">${S.rounds.map((r,i)=>`<li><span class="rn">${t('round',i+1)}</span>${r.matches.map(s=>{const aw=s.sa>s.sb;
+    return `<div class="m"><span class="t ${aw?'w':''}">${s.a.map(id=>esc(nm(id))).join(t('sep'))}</span><span class="sc num">${fa(s.sa)} – ${fa(s.sb)}</span><span class="t ${aw?'':'w'}">${s.b.map(id=>esc(nm(id))).join(t('sep'))}</span></div>`}).join('')}</li>`).reverse().join('')}</ol>`;
 }
 function matrix(){
   const {pair,key}=stats();const ps=S.players;
@@ -363,25 +426,25 @@ function matrix(){
   const max=Math.max(1,...Object.values(pair));
   return `<div class="tbl-wrap"><table class="matrix num"><thead><tr><th></th>${ps.map(p=>`<th>${esc(p.name)}</th>`).join('')}</tr></thead><tbody>${
     ps.map(a=>`<tr><th class="name">${esc(a.name)}</th>${ps.map(b=>{if(a.id===b.id)return '<td class="z">—</td>';const v=pair[key(a.id,b.id)]||0;
-      return v?`<td><span class="heat" style="background:color-mix(in srgb,var(--court) ${Math.round(15+60*v/max)}%,transparent);color:${v/max>.6?'var(--court-ink)':'var(--ink)'}">${fa(v)}</span></td>`:'<td class="z">۰</td>'}).join('')}</tr>`).join('')
-  }</tbody></table></div><p class="sub">عددهای کم و نزدیک به هم یعنی چرخش منصفانه بوده.</p>`;
+      return v?`<td><span class="heat" style="background:color-mix(in srgb,var(--court) ${Math.round(15+60*v/max)}%,transparent);color:${v/max>.6?'var(--court-ink)':'var(--ink)'}">${fa(v)}</span></td>`:`<td class="z">${fa(0)}</td>`}).join('')}</tr>`).join('')
+  }</tbody></table></div><p class="sub">${t('matrixNote')}</p>`;
 }
 
 /* ---------- events ---------- */
 function addPlayer(name,midGame){
   name=name.trim();if(!name)return false;
-  if(S.players.some(p=>p.name===name)){ui.err='این اسم قبلاً اضافه شده.';return false}
+  if(S.players.some(p=>p.name===name)){ui.err=t('dup');return false}
   let base=0;
   if(midGame){const {st}=stats();const o=active().map(p=>st[p.id].played+p.base);base=o.length?Math.min(...o):0}
   const p={id:uid(),name,active:true,base};S.players.push(p);ui.err='';
-  if(midGame){ui.newIds.push(p.id);ui.ok=`${name} اضافه شد و دور بعد بازی می‌کند.`}
+  if(midGame){ui.newIds.push(p.id);ui.ok=t('lateOk',name)}
   return true;
 }
 function bind(){
   const $=id=>document.getElementById(id);
   const on=(id,f)=>{const el=$(id);if(el)el.onclick=f};
   const af=$('addf');if(af)af.onsubmit=e=>{e.preventDefault();if(S.sample){S.players=[];S.sample=false}addPlayer($('pname').value,false);render();$('pname').focus()};
-  const ag=$('addg');if(ag)ag.onsubmit=e=>{e.preventDefault();if(addPlayer($('gname').value,true))render();else{ui.ok='';render()};$('gname').focus()};
+  const ag=$('addg');if(ag)ag.onsubmit=e=>{e.preventDefault();if(!addPlayer($('gname').value,true))ui.ok='';render();$('gname').focus()};
   app.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{S.players=S.players.filter(p=>p.id!==b.dataset.del);S.sample=false;render()});
   app.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{S.mode=+b.dataset.mode;render()});
   app.querySelectorAll('[data-courts]').forEach(b=>b.onclick=()=>{S.courts=+b.dataset.courts;render()});
@@ -399,7 +462,7 @@ function bind(){
   on('redraw',()=>{draw();render()});
   on('finish',()=>{const c=S.current;
     const bad=c.matches.findIndex(m=>m.sa===m.sb);
-    if(bad>=0){ui.err=(c.matches.length>1?`زمین ${fa(bad+1)}: `:'')+'امتیاز دو تیم مساوی است. امتیاز برنده را وارد کن.';render();return}
+    if(bad>=0){ui.err=(c.matches.length>1?t('court',bad+1)+': ':'')+t('tie');render();return}
     S.rounds.push({matches:c.matches.map(m=>({...m})),bench:c.bench});ui.newIds=[];ui.ok='';draw();ui.confirm=null;render();window.scrollTo({top:0,behavior:'smooth'})});
   on('end',()=>{ui.confirm='end';render()});
   on('nope',()=>{ui.confirm=null;render()});
@@ -408,9 +471,14 @@ function bind(){
   on('rsOpen',()=>{ui.confirm='reset';render();window.scrollTo({top:0,behavior:'smooth'})});
   on('rsNo',()=>{ui.confirm=null;render()});
   on('rsKeep',()=>{ui.confirm=null;ui.err='';ui.ok='';S.rounds=[];S.current=null;S.players.forEach(p=>{p.base=0;p.active=true});S.phase='setup';render()});
-  on('rsAll',()=>{ui.confirm=null;ui.err='';ui.ok='';const m=S.mode,c=S.courts;S={...fresh(),players:[],sample:false,mode:m,courts:c};render()});
+  on('rsAll',()=>{ui.confirm=null;ui.err='';ui.ok='';const m=S.mode,c=S.courts,lg=S.lang;S={...fresh(lg),players:[],sample:false,mode:m,courts:c};render()});
 }
 document.getElementById('resetBtn').onclick=()=>{ui.confirm=ui.confirm==='reset'?null:'reset';render();window.scrollTo({top:0,behavior:'smooth'})};
+document.querySelectorAll('[data-lang]').forEach(b=>b.onclick=()=>{
+  const lg=b.dataset.lang;if(lg===S.lang)return;
+  if(S.sample&&S.phase==='setup')S.players=SAMPLE[lg].map(n=>({id:uid(),name:n,active:true,base:0}));
+  S.lang=lg;ui.err='';ui.ok='';render();
+});
 render();
 })();
 </script>

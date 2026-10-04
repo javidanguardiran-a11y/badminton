@@ -134,6 +134,7 @@ details summary{cursor:pointer;font-weight:700}
       <h1>والیبال <span>چرخشی</span></h1>
       <p class="sub">قرعه‌کشی منصفانه تیم‌ها، ست به ست</p>
     </div>
+    <button class="btn-ghost" id="resetBtn" type="button" style="white-space:nowrap;flex-shrink:0">↺ شروع دوباره</button>
   </header>
   <main id="app"></main>
 </div>
@@ -217,7 +218,19 @@ function draw(){
 
 /* ---------- views ---------- */
 const app=document.getElementById('app');
-function render(){save();app.innerHTML=S.phase==='setup'?vSetup():S.phase==='game'?vGame():vFinal();bind();}
+function vReset(){
+  return `<section class="card" style="border:2px solid var(--bad)">
+    <h2>شروع دوباره</h2>
+    <p class="sub">«بازی جدید» امتیازها و ست‌ها را پاک می‌کند ولی اسم‌ها می‌مانند. «پاک کردن همه چیز» اسم‌ها را هم پاک می‌کند.</p>
+    <div class="row">
+      <button class="btn-main" id="rsKeep" style="flex:1">بازی جدید با همین بازیکن‌ها</button>
+      <button class="btn-danger" id="rsAll" style="flex:1">پاک کردن همه چیز</button>
+    </div>
+    <button class="btn-ghost wide" id="rsNo">انصراف</button>
+  </section>`;
+}
+function render(){save();app.innerHTML=(ui.confirm==='reset'?vReset():'')+(S.phase==='setup'?vSetup():S.phase==='game'?vGame():vFinal());bind();}
+document.getElementById('resetBtn').onclick=()=>{ui.confirm=ui.confirm==='reset'?null:'reset';render();window.scrollTo({top:0,behavior:'smooth'})};
 
 function vSetup(){
   const act=active().length,k=S.teamSize;
@@ -357,6 +370,9 @@ function bind(){
   on('endyes',()=>{ui.confirm=null;S.phase='final';render();window.scrollTo({top:0})});
   on('back',()=>{ui.confirm=null;S.phase='game';if(!S.current)draw();render()});
   on('new',()=>{ui.confirm='new';render()});
+  on('rsNo',()=>{ui.confirm=null;render()});
+  on('rsKeep',()=>{ui.confirm=null;ui.err='';S.sets=[];S.current=null;S.players.forEach(p=>{p.base=0;p.active=true});S.phase='setup';render()});
+  on('rsAll',()=>{ui.confirm=null;ui.err='';S={...fresh(),players:[],sample:false};render()});
   on('newyes',()=>{ui.confirm=null;S.sets=[];S.players.forEach(p=>{p.base=0;p.active=true});S.current=null;S.phase='setup';render()});
 }
 render();
